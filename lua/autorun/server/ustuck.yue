@@ -1,5 +1,3 @@
-addonName = "uStuck - APS"
-
 :GetPos, :SetPos, :IsValid, :GetMoveType, :WorldSpaceCenter, :GetPhysicsObject = FindMetaTable( "Entity" )
 :Alive, :GetHullDuck, :GetHull = FindMetaTable( "Player" )
 MOVETYPE_WALK = MOVETYPE_WALK
@@ -101,7 +99,7 @@ do
 
     ok, msg = false, nil
 
-    timer.Create addonName, 0.025, 0, ->
+    timer.Create "uStuck - AntiPlayerStuck", 0.025, 0, ->
         ok, msg = resume( thread )
         unless ok
             ErrorNoHaltWithStack( msg )
