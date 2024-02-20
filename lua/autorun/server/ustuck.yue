@@ -1,0 +1,107 @@
+addonName = "uStuck - APS"
+
+:GetPos, :SetPos, :IsValid, :GetMoveType, :WorldSpaceCenter, :GetPhysicsObject = FindMetaTable( "Entity" )
+:Alive, :GetHullDuck, :GetHull = FindMetaTable( "Player" )
+MOVETYPE_WALK = MOVETYPE_WALK
+:resume, :yield = coroutine
+:sqrt, :sin, :cos = math
+:TraceHull = util
+:GetAll = player
+Vector = Vector
+:Run = hook
+
+stuck, trace, start, mins, maxs, mass = false, { collisiongroup: COLLISION_GROUP_PLAYER, mask: MASK_PLAYERSOLID }, Vector!, Vector!, Vector!, 0
+samples, y, theta, radius = 0, 0, 0, 0
+phi = math.pi * ( sqrt( 5 ) - 1 )
+downOffset = Vector( 0, 0, -128 )
+
+thread = coroutine.create ->
+    ::start::
+
+    for ply in *GetAll!
+        unless IsValid( ply ) and Alive( ply ) and GetMoveType( ply ) == MOVETYPE_WALK
+            continue
+
+        phys = GetPhysicsObject( ply )
+        unless phys and phys\IsValid!
+            continue
+
+        start, mins, maxs = GetPos( ply ), GetHullDuck( ply )
+        trace.mins, trace.maxs = mins, maxs
+        mass = phys\GetMass!
+        trace.filter = ply
+        stuck = false
+
+        for i = 1, 2
+            if i == 2
+                start, mins, maxs = WorldSpaceCenter( ply ), GetHullDuck( ply )
+                mins[ 3 ], maxs[ 3 ] = -maxs[ 3 ] / 2, 0
+                trace.mins, trace.maxs = mins, maxs
+
+            trace.start, trace.endpos = start, start
+
+            traceResult = TraceHull( trace )
+            unless traceResult.Hit
+                continue
+
+            entity = traceResult.Entity
+            if IsValid( entity )
+                phys = GetPhysicsObject( entity )
+                if phys and phys\IsValid!
+                    if phys\IsMoveable! and phys\IsMotionEnabled! and mass < phys\GetMass!
+                        if phys\IsPenetrating!
+                            stuck = true
+                            break
+
+                    else
+                        stuck = true
+                        break
+
+            else
+                stuck = true
+                break
+
+        if stuck
+            mins, maxs = GetHull( ply )
+            trace.mins, trace.maxs = mins, maxs
+
+            for j = 1, 3
+                samples = 16 * j
+                for i = 0, samples
+                    y, theta = 1 - ( i / ( samples - 1 ) ) * 2, phi * i
+                    radius = sqrt( 1 - y * y )
+
+                    trace.start = start + Vector( cos( theta ) * radius, y, sin( theta ) * radius ) * 128 * j
+                    trace.endpos = trace.start
+
+                    unless TraceHull( trace ).Hit
+                        trace.endpos = trace.start + downOffset
+                        SetPos( ply, TraceHull( trace ).HitPos )
+                        stuck = false
+                        break
+
+                unless stuck
+                    break
+
+            if stuck
+                spawnPoint = Run( "PlayerSelectSpawn", ply, false )
+                if spawnPoint and IsValid( spawnPoint )
+                    SetPos( ply, GetPos( spawnPoint ) )
+                else
+                    SetPos( ply, vector_origin )
+
+        ::solved::
+        yield!
+
+    yield!
+    goto start
+
+
+do
+
+    ok, msg = false, nil
+
+    timer.Create addonName, 0.025, 0, ->
+        ok, msg = resume( thread )
+        unless ok
+            ErrorNoHaltWithStack( msg )
