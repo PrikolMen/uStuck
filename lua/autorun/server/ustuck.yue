@@ -59,7 +59,7 @@ thread = coroutine.create ->
                 stuck = true
                 break
 
-        if stuck
+        if stuck and Run( "PlayerStuck", ply, traceResult ) ~= true
             mins, maxs = GetHull( ply )
             trace.mins, trace.maxs = mins, maxs
 
@@ -93,7 +93,6 @@ thread = coroutine.create ->
 
     yield!
     goto start
-
 
 do
 
