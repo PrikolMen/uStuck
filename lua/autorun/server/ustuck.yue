@@ -1,5 +1,5 @@
 :GetPos, :SetPos, :IsValid, :GetMoveType, :WorldSpaceCenter, :GetPhysicsObject = FindMetaTable( "Entity" )
-:Alive, :GetHullDuck, :GetHull = FindMetaTable( "Player" )
+:Alive, :GetHullDuck, :GetHull, :IsPlayingTaunt = FindMetaTable( "Player" )
 MOVETYPE_WALK = MOVETYPE_WALK
 :resume, :yield = coroutine
 :sqrt, :sin, :cos = math
@@ -17,7 +17,10 @@ thread = coroutine.create ->
     ::start::
 
     for ply in *GetAll!
-        unless IsValid( ply ) and Alive( ply ) and GetMoveType( ply ) == MOVETYPE_WALK
+        unless IsValid( ply ) and Alive( ply )
+            continue
+
+        if GetMoveType( ply ) ~= MOVETYPE_WALK or IsPlayingTaunt( ply )
             continue
 
         phys = GetPhysicsObject( ply )
@@ -98,7 +101,7 @@ do
 
     ok, msg = false, nil
 
-    timer.Create "uStuck - AntiPlayerStuck", 0.025, 0, ->
+    timer.Create "uStuck - AntiPlayerStuck", 0.05, 0, ->
         ok, msg = resume( thread )
         unless ok
             ErrorNoHaltWithStack( msg )
