@@ -49,8 +49,8 @@ thread = coroutine.create ->
             if IsValid( entity )
                 phys = GetPhysicsObject( entity )
                 if phys and phys\IsValid!
-                    if phys\IsMoveable! and phys\IsMotionEnabled! and mass < phys\GetMass!
-                        if phys\IsPenetrating!
+                    if phys\IsMoveable! and phys\IsMotionEnabled!
+                        if phys\IsPenetrating! and phys\GetMass! > mass
                             stuck = true
                             break
 
