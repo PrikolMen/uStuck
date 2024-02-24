@@ -47,10 +47,13 @@ thread = coroutine.create ->
 
             entity = traceResult.Entity
             if IsValid( entity )
+                if entity\GetRagdollOwner! == ply
+                    continue
+
                 phys = GetPhysicsObject( entity )
                 if phys and phys\IsValid!
                     if phys\IsMoveable! and phys\IsMotionEnabled!
-                        if phys\IsPenetrating! and phys\GetMass! > mass
+                        if phys\IsPenetrating! and ( entity\IsPlayer! or phys\GetMass! >= mass )
                             stuck = true
                             break
 
