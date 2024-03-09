@@ -8,7 +8,8 @@ MOVETYPE_WALK = MOVETYPE_WALK
 Vector = Vector
 :Run = hook
 
-stuck, trace, start, mins, maxs, mass = false, { collisiongroup: COLLISION_GROUP_PLAYER, mask: MASK_PLAYERSOLID }, Vector!, Vector!, Vector!, 0
+traceResult = {}
+stuck, trace, start, mins, maxs, mass = false, { collisiongroup: COLLISION_GROUP_PLAYER, mask: MASK_PLAYERSOLID, output: traceResult }, Vector!, Vector!, Vector!, 0
 samples, y, theta, radius = 0, 0, 0, 0
 phi = math.pi * ( sqrt( 5 ) - 1 )
 downOffset = Vector( 0, 0, -128 )
@@ -40,8 +41,8 @@ thread = coroutine.create ->
                 trace.mins, trace.maxs = mins, maxs
 
             trace.start, trace.endpos = start, start
+            TraceHull( trace )
 
-            traceResult = TraceHull( trace )
             unless traceResult.Hit
                 continue
 
@@ -77,10 +78,13 @@ thread = coroutine.create ->
 
                     trace.start = start + Vector( cos( theta ) * radius, y, sin( theta ) * radius ) * 128 * j
                     trace.endpos = trace.start
+                    TraceHull( trace )
 
-                    unless TraceHull( trace ).Hit
+                    unless traceResult.Hit
                         trace.endpos = trace.start + downOffset
-                        SetPos( ply, TraceHull( trace ).HitPos )
+                        TraceHull( trace )
+
+                        SetPos( ply, traceResult.HitPos )
                         stuck = false
                         break
 
