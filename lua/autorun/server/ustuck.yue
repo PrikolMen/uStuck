@@ -87,8 +87,11 @@ thread = coroutine.create ->
                 if entity\IsRagdoll!
                     continue
 
-                if entity\IsPlayer! and entity\Alive!
-                    stuckType = 3
+                if entity\IsPlayer!
+                    if entity\Alive! and entity\GetAvoidPlayers!
+                        stuckType = 3
+                        break
+
                 else
                     phys = GetPhysicsObject( entity )
                     if phys and phys\IsValid!
