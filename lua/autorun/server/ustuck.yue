@@ -1,19 +1,14 @@
-:GetPos, :SetPos, :IsValid, :GetMoveType, :WorldSpaceCenter, :GetPhysicsObject = FindMetaTable( "Entity" )
-:Alive, :GetHullDuck, :GetHull, :IsPlayingTaunt = FindMetaTable( "Player" )
-:SetUnpacked = FindMetaTable( "Vector" )
-:resume, :yield, :wait = coroutine
-:sqrt, :sin, :cos, :random = math
+import GetPos, SetPos, IsValid, GetMoveType, GetPhysicsObject, GetCollisionBounds from FindMetaTable( "Entity" )
+import Alive, IsPlayingTaunt from FindMetaTable( "Player" )
+import SetUnpacked from FindMetaTable( "Vector" )
+import resume, yield, wait from coroutine
+import sqrt, sin, cos, random from math
 MOVETYPE_WALK = MOVETYPE_WALK
-:Iterator = player
-:TraceHull = util
-:Run = hook
+import Iterator from player
+import TraceHull from util
+import Run from hook
 
 addonName = "Unknown Stuck - AntiPlayerStuck Solution"
-
-ustuck_enabled = CreateConVar( "ustuck_enabled", "1", FCVAR_ARCHIVE, "Enable unstuck logic for players." )\GetBool!
-cvars.AddChangeCallback( "ustuck_enabled", ( _, __, value ) ->
-    ustuck_enabled = value == "1"
-addonName )
 
 -- Constants
 phi = math.pi * ( sqrt( 5 ) - 1 )
@@ -25,8 +20,8 @@ trace = { collisiongroup: COLLISION_GROUP_PLAYER, mask: MASK_PLAYERSOLID, output
 
 -- Variables
 samples, y, theta, radius = 0, 0, 0, 0
-stuckType, mass = 0, 0
 tempVector = Vector!
+stuckType = 0
 
 --[[
 
@@ -38,140 +33,130 @@ tempVector = Vector!
 
 ]]
 
+local entity, start, phys, phys2
+
 thread = coroutine.create ->
-    ::start::
+    while true
+        for _, ply in Iterator!
+            unless IsValid( ply )
+                goto solved
 
-    unless ustuck_enabled
-        goto skipAll
+            if ply.m_iOldStuckCollisionGroup ~= nil
+                ply\SetCollisionGroup( ply.m_iOldStuckCollisionGroup or 5 )
 
-    for _, ply in Iterator!
-        unless IsValid( ply )
-            continue
+            unless Alive( ply )
+                goto solved
 
-        if ply.m_iOldStuckCollisionGroup ~= nil
-            ply\SetCollisionGroup( ply.m_iOldStuckCollisionGroup or 5 )
+            if GetMoveType( ply ) ~= MOVETYPE_WALK or IsPlayingTaunt( ply )
+                goto solved
 
-        unless Alive( ply )
-            continue
+            phys = GetPhysicsObject( ply )
+            unless phys and phys\IsValid!
+                goto solved
 
-        if GetMoveType( ply ) ~= MOVETYPE_WALK or IsPlayingTaunt( ply )
-            continue
+            trace.mins, trace.maxs = GetCollisionBounds( ply )
 
-        phys = GetPhysicsObject( ply )
-        unless phys and phys\IsValid!
-            continue
+            start = GetPos( ply )
+            trace.endpos = start
+            trace.start = start
+            trace.filter = ply
 
-        mass = phys\GetMass!
-
-        start, mins, maxs = GetPos( ply ), GetHullDuck( ply )
-        trace.mins, trace.maxs = mins, maxs
-        trace.filter = ply
-
-        stuckType = 0
-
-        entity = nil
-        for i = 1, 2
-            if i == 2
-                start, mins, maxs = WorldSpaceCenter( ply ), GetHullDuck( ply )
-                mins[ 3 ], maxs[ 3 ] = -maxs[ 3 ] / 2, 0
-                trace.mins, trace.maxs = mins, maxs
-
-            trace.start, trace.endpos = start, start
             TraceHull( trace )
 
             unless traceResult.Hit
-                continue
+                goto solved
 
             entity = traceResult.Entity
             if IsValid( entity )
                 if entity\IsRagdoll!
-                    continue
+                    goto solved
+
 
                 if entity\IsPlayer!
-                    if entity\Alive! and entity\GetAvoidPlayers!
-                        stuckType = 3
-                        break
+                    unless entity\Alive! and entity\GetAvoidPlayers!
+                        goto solved
 
+                    stuckType = 3
                 else
-                    phys = GetPhysicsObject( entity )
-                    if phys and phys\IsValid!
-                        if phys\IsMoveable! and phys\IsMotionEnabled!
-                            if phys\IsPenetrating! and phys\GetMass! >= mass
-                                stuckType = 2
-                                break
+                    phys2 = GetPhysicsObject( entity )
+                    if phys2 and phys2\IsValid!
+                        if phys2\IsMoveable! and phys2\IsMotionEnabled!
+                            unless phys2\IsPenetrating! and phys2\GetMass! >= phys\GetMass!
+                                goto solved
 
+                            stuckType = 2
                         else
                             stuckType = 1
-                            break
-
             else
                 stuckType = 1
-                break
 
-        if Run( "PlayerStuck", ply, traceResult, stuckType ) == false
-            goto solved
+            if Run( "PlayerStuck", ply, traceResult, stuckType ) == false
+                goto solved
 
-        if stuckType == 3
-            entity.m_iOldStuckCollisionGroup = entity\GetCollisionGroup!
-            entity\SetCollisionGroup( 15 )
+            if stuckType == 3
+                entity.m_iOldStuckCollisionGroup = entity\GetCollisionGroup!
+                entity\SetCollisionGroup( 15 )
 
-            ply.m_iOldStuckCollisionGroup = ply\GetCollisionGroup!
-            ply\SetCollisionGroup( 15 )
+                ply.m_iOldStuckCollisionGroup = ply\GetCollisionGroup!
+                ply\SetCollisionGroup( 15 )
 
-            SetUnpacked( tempVector, random( 0, 1 ) == 0 and -512 or 512, random( 0, 1 ) == 0 and -512 or 512, 128 )
-            ply\SetVelocity( tempVector )
+                SetUnpacked( tempVector, random( 0, 1 ) == 0 and -512 or 512, random( 0, 1 ) == 0 and -512 or 512, 128 )
+                ply\SetVelocity( tempVector )
 
-            wait( 0.25 )
-            goto solved
+                wait( 0.25 )
+                goto solved
 
-        if stuckType == 2
-            goto solved
+            if stuckType == 2
+                goto solved
 
-        if stuckType == 1
-            mins, maxs = GetHull( ply )
-            trace.mins, trace.maxs = mins, maxs
+            if stuckType == 1
+                for j = 1, 3
+                    samples = 16 * j
+                    for i = 0, samples
+                        y, theta = 1 - ( i / ( samples - 1 ) ) * 2, phi * i
+                        radius = sqrt( 1 - y * y )
 
-            for j = 1, 3
-                samples = 16 * j
-                for i = 0, samples
-                    y, theta = 1 - ( i / ( samples - 1 ) ) * 2, phi * i
-                    radius = sqrt( 1 - y * y )
-
-                    SetUnpacked( tempVector, cos( theta ) * radius, y, sin( theta ) * radius )
-                    trace.start = start + tempVector * 128 * j
-                    trace.endpos = trace.start
-                    TraceHull( trace )
-
-                    unless traceResult.Hit
-                        trace.endpos = trace.start + downOffset
+                        SetUnpacked( tempVector, cos( theta ) * radius, y, sin( theta ) * radius )
+                        trace.start = start + tempVector * 128 * j
+                        trace.endpos = trace.start
                         TraceHull( trace )
 
-                        SetPos( ply, traceResult.HitPos )
-                        stuckType = 0
+                        unless traceResult.Hit
+                            trace.endpos = trace.start + downOffset
+                            TraceHull( trace )
+
+                            SetPos( ply, traceResult.HitPos )
+                            stuckType = 0
+                            break
+
+                    if stuckType == 0
                         break
 
-                if stuckType == 0
-                    break
+            if stuckType ~= 0
+                spawnPoint = Run( "PlayerSelectSpawn", ply, false )
+                if spawnPoint and IsValid( spawnPoint )
+                    SetPos( ply, GetPos( spawnPoint ) )
+                else
+                    SetPos( ply, vector_origin )
 
-        if stuckType ~= 0
-            spawnPoint = Run( "PlayerSelectSpawn", ply, false )
-            if spawnPoint and IsValid( spawnPoint )
-                SetPos( ply, GetPos( spawnPoint ) )
-            else
-                SetPos( ply, vector_origin )
+            ::solved::
+            yield!
 
-        ::solved::
         yield!
 
-    ::skipAll::
-    yield!
-    goto start
-
 do
+
+    ustuck_enabled = CreateConVar( "ustuck_enabled", "1", FCVAR_ARCHIVE, "Enable unstuck logic for players." )\GetBool!
+    cvars.AddChangeCallback( "ustuck_enabled", ( _, __, value ) ->
+        ustuck_enabled = value == "1"
+    addonName )
 
     ok, msg = false, nil
 
     timer.Create addonName, 0.05, 0, ->
+        unless ustuck_enabled
+            return
+
         ok, msg = resume( thread )
         unless ok
             ErrorNoHaltWithStack( msg )
