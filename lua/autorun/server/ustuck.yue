@@ -71,7 +71,6 @@ thread = coroutine.create ->
                 if entity\IsRagdoll!
                     goto solved
 
-
                 if entity\IsPlayer!
                     unless entity\Alive! and entity\GetAvoidPlayers!
                         goto solved
